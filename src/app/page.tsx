@@ -1,65 +1,294 @@
-import Image from "next/image";
+import { db, schema } from "@/lib/db";
+import { desc, eq, sql, and } from "drizzle-orm";
+import { format, subDays } from "date-fns";
+import Link from "next/link";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ScoreBadge } from "@/components/score-badge";
+import {
+  GitCommit,
+  Users,
+  GitPullRequest,
+  FolderGit2,
+  Brain,
+} from "lucide-react";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+async function getLatestDate(): Promise<string> {
+  const latest = await db.query.dailyOrgSummaries.findFirst({
+    orderBy: desc(schema.dailyOrgSummaries.date),
+  });
+  return latest?.date || format(subDays(new Date(), 1), "yyyy-MM-dd");
+}
+
+export default async function DashboardPage() {
+  const date = await getLatestDate();
+
+  const orgSummary = await db.query.dailyOrgSummaries.findFirst({
+    where: eq(schema.dailyOrgSummaries.date, date),
+  });
+
+  const analyses = await db
+    .select({
+      username: schema.engineers.username,
+      displayName: schema.engineers.displayName,
+      avatarUrl: schema.engineers.avatarUrl,
+      commitCount: schema.dailyAnalyses.commitCount,
+      totalLinesAdded: schema.dailyAnalyses.totalLinesAdded,
+      totalLinesDeleted: schema.dailyAnalyses.totalLinesDeleted,
+      efficiencyScore: schema.dailyAnalyses.efficiencyScore,
+      workSummary: schema.dailyAnalyses.workSummary,
+    })
+    .from(schema.dailyAnalyses)
+    .innerJoin(
+      schema.engineers,
+      eq(schema.dailyAnalyses.engineerId, schema.engineers.id)
+    )
+    .where(eq(schema.dailyAnalyses.date, date))
+    .orderBy(desc(schema.dailyAnalyses.efficiencyScore));
+
+  // Get repo activity for the day
+  const dayStart = new Date(`${date}T00:00:00Z`);
+  const dayEnd = new Date(`${date}T23:59:59Z`);
+  const repoActivity = await db
+    .select({
+      name: schema.repos.name,
+      commits: sql<number>`count(*)`,
+    })
+    .from(schema.commits)
+    .innerJoin(schema.repos, eq(schema.commits.repoId, schema.repos.id))
+    .where(
+      and(
+        sql`${schema.commits.committedAt} >= ${dayStart.getTime() / 1000}`,
+        sql`${schema.commits.committedAt} <= ${dayEnd.getTime() / 1000}`
+      )
+    )
+    .groupBy(schema.repos.name)
+    .orderBy(desc(sql`count(*)`));
+
+  // Recent dates for navigation
+  const recentDates = await db
+    .select({ date: schema.dailyOrgSummaries.date })
+    .from(schema.dailyOrgSummaries)
+    .orderBy(desc(schema.dailyOrgSummaries.date))
+    .limit(7);
+
+  const avgScore =
+    analyses.length > 0
+      ? Math.round(
+          analyses.reduce((s, a) => s + (a.efficiencyScore || 0), 0) /
+            analyses.length
+        )
+      : 0;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <div className="space-y-6">
+      {/* Date Navigation */}
+      <div className="flex items-center gap-2 text-sm flex-wrap">
+        {recentDates.map((d) => (
+          <Link
+            key={d.date}
+            href={`/daily/${d.date}`}
+            className={`px-3 py-1 rounded-md transition-colors ${
+              d.date === date
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted hover:bg-muted/80"
+            }`}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            {d.date}
+          </Link>
+        ))}
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">Total Commits</CardTitle>
+            <GitCommit className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {orgSummary?.totalCommits || 0}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">
+              Active Engineers
+            </CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {orgSummary?.activeEngineers || 0}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">PRs Merged</CardTitle>
+            <GitPullRequest className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {orgSummary?.totalPrsMerged || 0}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium">
+              Avg Efficiency
+            </CardTitle>
+            <Brain className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{avgScore}/100</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* AI Summary */}
+      {orgSummary?.orgSummary && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5" />
+              AI Team Summary
+            </CardTitle>
+            <CardDescription>{date}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm leading-relaxed">{orgSummary.orgSummary}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Engineer Leaderboard + Repo Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Engineer Leaderboard</CardTitle>
+              <CardDescription>Ranked by efficiency score</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>#</TableHead>
+                    <TableHead>Engineer</TableHead>
+                    <TableHead className="text-right">Commits</TableHead>
+                    <TableHead className="text-right">Lines</TableHead>
+                    <TableHead className="text-right">Score</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {analyses.map((a, i) => (
+                    <TableRow key={a.username}>
+                      <TableCell className="font-mono">{i + 1}</TableCell>
+                      <TableCell>
+                        <Link
+                          href={`/engineer/${a.username}`}
+                          className="font-medium hover:underline"
+                        >
+                          {a.displayName || a.username}
+                        </Link>
+                        <div className="text-xs text-muted-foreground truncate max-w-[300px]">
+                          {a.workSummary}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {a.commitCount}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs">
+                        <span className="text-emerald-600">
+                          +{a.totalLinesAdded}
+                        </span>
+                        /
+                        <span className="text-red-600">
+                          -{a.totalLinesDeleted}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <ScoreBadge score={a.efficiencyScore || 0} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {analyses.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        colSpan={5}
+                        className="text-center text-muted-foreground"
+                      >
+                        No data for this date
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </div>
-      </main>
+
+        <div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FolderGit2 className="h-5 w-5" />
+                Repo Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {repoActivity.map((r) => (
+                  <div
+                    key={r.name}
+                    className="flex items-center justify-between"
+                  >
+                    <Link
+                      href={`/repo/${r.name}`}
+                      className="text-sm font-medium hover:underline"
+                    >
+                      {r.name}
+                    </Link>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="h-2 bg-primary rounded-full"
+                        style={{
+                          width: `${Math.max(20, (r.commits / Math.max(...repoActivity.map((x) => x.commits))) * 100)}px`,
+                        }}
+                      />
+                      <span className="text-sm font-mono text-muted-foreground">
+                        {r.commits}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                {repoActivity.length === 0 && (
+                  <p className="text-sm text-muted-foreground">No activity</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
