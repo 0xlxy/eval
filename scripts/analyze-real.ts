@@ -2,25 +2,20 @@ import { config } from "dotenv";
 config({ path: ".env.local", override: true });
 
 import { runFullAnalysis } from "../src/lib/claude/analyze";
-import Database from "better-sqlite3";
-import path from "path";
+import { db, schema } from "../src/lib/db";
+import { sql } from "drizzle-orm";
 
 async function main() {
-  const dbPath = path.join(process.cwd(), "data", "dev-eval.db");
-  const sqlite = new Database(dbPath);
-
-  // Find all dates that have commits but no analysis yet
-  const dates = sqlite
-    .prepare(
-      `SELECT DISTINCT date(committed_at, 'unixepoch') as d
-       FROM commits
-       ORDER BY d DESC`
-    )
-    .all() as { d: string }[];
+  // Find all dates that have commits
+  const dates = await db
+    .selectDistinct({
+      d: sql<string>`date(${schema.commits.committedAt}, 'unixepoch')`,
+    })
+    .from(schema.commits)
+    .orderBy(sql`date(${schema.commits.committedAt}, 'unixepoch') DESC`);
 
   console.log(`Found ${dates.length} dates with commits:`);
   dates.forEach((d) => console.log(`  - ${d.d}`));
-  sqlite.close();
 
   for (const { d } of dates) {
     console.log(`\nAnalyzing ${d}...`);

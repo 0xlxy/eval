@@ -1,5 +1,5 @@
 import { config } from "dotenv";
-config({ path: ".env.local" });
+config({ path: ".env.local", override: true });
 
 import { fetchDailyData } from "../src/lib/github/fetch-commits";
 import { format, subDays } from "date-fns";

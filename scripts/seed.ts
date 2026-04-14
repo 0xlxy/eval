@@ -1,14 +1,16 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { config } from "dotenv";
+config({ path: ".env.local", override: true });
+
+import { drizzle } from "drizzle-orm/libsql";
+import { createClient } from "@libsql/client";
 import * as schema from "../src/lib/db/schema";
 import { format, subDays } from "date-fns";
-import path from "path";
 
-const dbPath = path.join(process.cwd(), "data", "dev-eval.db");
-const sqlite = new Database(dbPath);
-sqlite.pragma("journal_mode = WAL");
-sqlite.pragma("foreign_keys = ON");
-const db = drizzle(sqlite, { schema });
+const client = createClient({
+  url: process.env.TURSO_DATABASE_URL!,
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
+const db = drizzle(client, { schema });
 
 const ENGINEERS = [
   { username: "alice-chen", displayName: "Alice Chen", avatarUrl: null },
@@ -55,23 +57,21 @@ async function seed() {
 
   // Insert engineers
   for (const eng of ENGINEERS) {
-    db.insert(schema.engineers).values(eng).onConflictDoNothing().run();
+    await db.insert(schema.engineers).values(eng).onConflictDoNothing().run();
   }
-  const engineerIds = db
+  const allEngineers = await db
     .select({ id: schema.engineers.id })
-    .from(schema.engineers)
-    .all()
-    .map((e) => e.id);
+    .from(schema.engineers);
+  const engineerIds = allEngineers.map((e) => e.id);
 
   // Insert repos
   for (const repo of REPOS) {
-    db.insert(schema.repos).values(repo).onConflictDoNothing().run();
+    await db.insert(schema.repos).values(repo).onConflictDoNothing().run();
   }
-  const repoIds = db
+  const allRepos = await db
     .select({ id: schema.repos.id })
-    .from(schema.repos)
-    .all()
-    .map((r) => r.id);
+    .from(schema.repos);
+  const repoIds = allRepos.map((r) => r.id);
 
   // Generate 30 days of data
   for (let dayOffset = 0; dayOffset < 30; dayOffset++) {
@@ -118,7 +118,7 @@ async function seed() {
           "test: add integration tests for API",
         ];
 
-        db.insert(schema.commits)
+        await db.insert(schema.commits)
           .values({
             sha,
             repoId,
@@ -145,7 +145,7 @@ async function seed() {
           "Implement WebSocket notifications",
           "Update CI pipeline configuration",
         ];
-        db.insert(schema.pullRequests)
+        await db.insert(schema.pullRequests)
           .values({
             githubId: randomInt(1000, 99999),
             repoId: randomItem(repoIds),
@@ -166,7 +166,7 @@ async function seed() {
 
       // Create daily analysis
       const score = randomInt(40, 95);
-      db.insert(schema.dailyAnalyses)
+      await db.insert(schema.dailyAnalyses)
         .values({
           engineerId: engId,
           date,
@@ -194,7 +194,7 @@ async function seed() {
 
     // Create org summary
     if (activeEngineers.length > 0) {
-      db.insert(schema.dailyOrgSummaries)
+      await db.insert(schema.dailyOrgSummaries)
         .values({
           date,
           totalCommits,
@@ -214,7 +214,6 @@ async function seed() {
   }
 
   console.log("Seed complete!");
-  sqlite.close();
 }
 
 seed().catch(console.error);

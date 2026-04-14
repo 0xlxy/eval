@@ -1,14 +1,25 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { drizzle } from "drizzle-orm/libsql";
+import { createClient } from "@libsql/client";
 import * as schema from "./schema";
-import path from "path";
 
-const dbPath =
-  process.env.DATABASE_URL || path.join(process.cwd(), "data", "dev-eval.db");
+let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
-const sqlite = new Database(dbPath);
-sqlite.pragma("journal_mode = WAL");
-sqlite.pragma("foreign_keys = ON");
+function getDb() {
+  if (!_db) {
+    const client = createClient({
+      url: process.env.TURSO_DATABASE_URL!,
+      authToken: process.env.TURSO_AUTH_TOKEN,
+    });
+    _db = drizzle(client, { schema });
+  }
+  return _db;
+}
 
-export const db = drizzle(sqlite, { schema });
+// Proxy that lazily initializes db on first access
+export const db = new Proxy({} as ReturnType<typeof drizzle<typeof schema>>, {
+  get(_target, prop) {
+    return (getDb() as unknown as Record<string | symbol, unknown>)[prop];
+  },
+});
+
 export { schema };
