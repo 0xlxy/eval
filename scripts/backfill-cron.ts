@@ -38,7 +38,7 @@ const TARGET_REPOS = [
 
 function createOctokit() {
   return new ThrottledOctokit({
-    auth: process.env.GITHUB_TOKEN,
+    auth: process.env.GH_PAT || process.env.GITHUB_TOKEN,
     throttle: {
       onRateLimit: (retryAfter: number, options: Record<string, unknown>) => {
         console.warn(`  Rate limit hit for ${options.method} ${options.url}, wait ${retryAfter}s`);
