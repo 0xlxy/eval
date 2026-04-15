@@ -40,6 +40,25 @@ export const commits = sqliteTable("commits", {
     .$defaultFn(() => new Date()),
 });
 
+// A commit can be reachable from multiple branches.
+// We store the mapping separately so `commits.sha` can remain globally unique.
+export const commitBranches = sqliteTable(
+  "commit_branches",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    commitId: integer("commit_id")
+      .notNull()
+      .references(() => commits.id),
+    branch: text("branch").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("commit_branches_commit_branch_idx").on(table.commitId, table.branch),
+  ]
+);
+
 export const pullRequests = sqliteTable("pull_requests", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   githubId: integer("github_id").notNull().unique(),
@@ -89,6 +108,28 @@ export const dailyAnalyses = sqliteTable(
     uniqueIndex("daily_analyses_engineer_date_idx").on(
       table.engineerId,
       table.date
+    ),
+  ]
+);
+
+/** Tracks which (date, repo, branch) combos have been fetched so we never repeat work. */
+export const fetchLog = sqliteTable(
+  "fetch_log",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    date: text("date").notNull(),
+    repoName: text("repo_name").notNull(),
+    branch: text("branch").notNull(),
+    commitsFetched: integer("commits_fetched").notNull().default(0),
+    fetchedAt: integer("fetched_at", { mode: "timestamp" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("fetch_log_date_repo_branch_idx").on(
+      table.date,
+      table.repoName,
+      table.branch
     ),
   ]
 );

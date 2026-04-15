@@ -44,6 +44,8 @@ const SUGGESTIONS = [
   "Consider setting up automated performance benchmarks to track improvements over time.",
 ];
 
+const BRANCHES = ["main", "develop", "feature/demo"];
+
 function randomInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -118,7 +120,8 @@ async function seed() {
           "test: add integration tests for API",
         ];
 
-        await db.insert(schema.commits)
+        await db
+          .insert(schema.commits)
           .values({
             sha,
             repoId,
@@ -127,10 +130,33 @@ async function seed() {
             linesAdded,
             linesDeleted,
             filesChanged,
-            committedAt: new Date(`${date}T${String(randomInt(9, 18)).padStart(2, "0")}:${String(randomInt(0, 59)).padStart(2, "0")}:00Z`),
+            committedAt: new Date(
+              `${date}T${String(randomInt(9, 18)).padStart(2, "0")}:${String(randomInt(0, 59)).padStart(2, "0")}:00Z`
+            ),
           })
           .onConflictDoNothing()
           .run();
+
+        const commit = await db.query.commits.findFirst({
+          where: (c, { eq }) => eq(c.sha, sha),
+          columns: { id: true },
+        });
+
+        const commitId = commit?.id;
+        if (commitId) {
+          // A commit can appear on multiple branches
+          const branchCount = randomInt(1, 2);
+          const branches = [...BRANCHES]
+            .sort(() => Math.random() - 0.5)
+            .slice(0, branchCount);
+          for (const branch of branches) {
+            await db
+              .insert(schema.commitBranches)
+              .values({ commitId, branch })
+              .onConflictDoNothing()
+              .run();
+          }
+        }
 
         totalCommits++;
       }

@@ -72,6 +72,19 @@ export default async function RepoPage({
     .orderBy(desc(schema.commits.committedAt))
     .limit(30);
 
+  // Branch breakdown (commits reachable from each branch)
+  const branches = await db
+    .select({
+      branch: schema.commitBranches.branch,
+      commits: sql<number>`count(*)`,
+    })
+    .from(schema.commitBranches)
+    .innerJoin(schema.commits, eq(schema.commitBranches.commitId, schema.commits.id))
+    .where(eq(schema.commits.repoId, repo.id))
+    .groupBy(schema.commitBranches.branch)
+    .orderBy(desc(sql`count(*)`))
+    .limit(20);
+
   const totalCommits = contributors.reduce((s, c) => s + c.commits, 0);
 
   return (
@@ -143,6 +156,38 @@ export default async function RepoPage({
                   </TableCell>
                 </TableRow>
               ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Branches */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Branches</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Branch</TableHead>
+                <TableHead className="text-right">Commits</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {branches.map((b) => (
+                <TableRow key={b.branch}>
+                  <TableCell className="font-mono text-sm">{b.branch}</TableCell>
+                  <TableCell className="text-right font-mono">{b.commits}</TableCell>
+                </TableRow>
+              ))}
+              {branches.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={2} className="text-center text-muted-foreground">
+                    No branch data
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>

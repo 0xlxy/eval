@@ -9,18 +9,19 @@ export function createGitHubClient() {
     throttle: {
       onRateLimit: (retryAfter: number, options: Record<string, unknown>) => {
         console.warn(
-          `Rate limit hit for ${options.method} ${options.url}, retrying after ${retryAfter}s`
+          `Rate limit hit for ${options.method} ${options.url} (not retrying; suggested wait ${retryAfter}s)`
         );
-        return true;
+        // Do not retry/wait on rate limits (user preference: stop immediately).
+        return false;
       },
       onSecondaryRateLimit: (
         retryAfter: number,
         options: Record<string, unknown>
       ) => {
         console.warn(
-          `Secondary rate limit for ${options.method} ${options.url}`
+          `Secondary rate limit for ${options.method} ${options.url} (not retrying; suggested wait ${retryAfter}s)`
         );
-        return true;
+        return false;
       },
     },
   });

@@ -1,0 +1,31 @@
+name: Backfill Commits
+
+on:
+  schedule:
+    # Run every hour to use each rate limit window
+    - cron: '5 * * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: Run backfill
+        run: node --max-old-space-size=512 ./node_modules/.bin/tsx scripts/backfill-cron.ts 2026-01-01 2026-04-15
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          GITHUB_ORG: Sofamon
+          FETCH_BRANCH_MODE: all
+          FETCH_MAX_BRANCHES_PER_REPO: '50'
