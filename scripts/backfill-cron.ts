@@ -27,6 +27,15 @@ const maxBranches = Math.min(
   500
 );
 
+// Only fetch actively developed repos — keeps API usage under 5k/hour
+const TARGET_REPOS = [
+  "wishwish-unity-v2",
+  "wishwish-ios",
+  "wishwish-contracts",
+  "wishwish-pc",
+  "wishwish-backend-mono",
+];
+
 function createOctokit() {
   return new ThrottledOctokit({
     auth: process.env.GITHUB_TOKEN,
@@ -208,20 +217,30 @@ async function main() {
     return;
   }
 
-  // Fetch repo list
-  console.log(`Fetching ${org} repos...`);
-  const allRepos = await octokit.paginate(octokit.repos.listForOrg, {
-    org,
-    type: "all",
-    per_page: 100,
-  });
-  const repos = allRepos.map((r) => ({
-    name: r.name,
-    fullName: r.full_name,
-    language: r.language || null,
-    defaultBranch: (r as { default_branch?: string }).default_branch || "main",
+  // Use targeted repo list — no need to paginate all org repos
+  const repos = TARGET_REPOS.map((name) => ({
+    name,
+    fullName: `${org}/${name}`,
+    language: null as string | null,
+    defaultBranch: "main",
   }));
-  console.log(`Found ${repos.length} repos, ${dates.length} days to process\n`);
+  console.log(`Targeting ${repos.length} repos, ${dates.length} days to process\n`);
+
+  // Cache branches per repo (they don't change day-to-day)
+  const branchCache = new Map<string, string[]>();
+  for (const repo of repos) {
+    try {
+      const branchList = await octokit.paginate(octokit.repos.listBranches, {
+        owner: org,
+        repo: repo.name,
+        per_page: 100,
+      });
+      branchCache.set(repo.name, branchList.map((b) => b.name).slice(0, maxBranches));
+    } catch {
+      branchCache.set(repo.name, [repo.defaultBranch]);
+    }
+  }
+  console.log(`Cached branches: ${[...branchCache.entries()].map(([r, b]) => `${r}(${b.length})`).join(", ")}\n`);
 
   let totalNewCommits = 0;
   let skippedCombos = 0;
@@ -261,18 +280,8 @@ async function main() {
         repoId = inserted.id;
       }
 
-      // List branches for this repo
-      let branches: string[] = [];
-      try {
-        const branchList = await octokit.paginate(octokit.repos.listBranches, {
-          owner: org,
-          repo: repo.name,
-          per_page: 100,
-        });
-        branches = branchList.map((b) => b.name).slice(0, maxBranches);
-      } catch {
-        branches = [repo.defaultBranch];
-      }
+      // Use cached branches
+      const branches = branchCache.get(repo.name) || [repo.defaultBranch];
 
       for (const branch of branches) {
         // Skip if already fetched
