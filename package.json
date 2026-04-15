@@ -11,6 +11,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.88.0",
     "@base-ui/react": "^1.4.0",
+    "@libsql/client": "^0.17.2",
     "@octokit/plugin-throttling": "^11.0.3",
     "@octokit/rest": "^22.0.1",
     "class-variance-authority": "^0.7.1",
