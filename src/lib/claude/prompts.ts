@@ -58,11 +58,11 @@ ${prSection}
 
 Respond with this exact JSON structure:
 {
-  "workSummary": "2-3 sentence summary of what the engineer accomplished today",
-  "qualityAssessment": "Assessment of code quality based on commit patterns and changes",
+  "workSummary": "ONE short sentence (max 20 words) capturing what was done. No preamble like 'Engineer X' — just the work.",
+  "qualityAssessment": "1 short sentence on code quality",
   "efficiencyScore": <number 1-100>,
-  "suggestions": "1-2 specific, actionable suggestions for improvement",
-  "highlights": "Notable positive contributions worth recognizing"
+  "suggestions": "1 short sentence with an actionable suggestion",
+  "highlights": "1 short phrase highlighting a notable contribution, or empty string"
 }`;
 }
 
