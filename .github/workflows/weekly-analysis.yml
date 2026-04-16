@@ -1,9 +1,9 @@
-name: Daily Analysis
+name: Weekly Analysis
 
 on:
   schedule:
-    # Run daily at 03:07 UTC (off-peak minute)
-    - cron: '7 3 * * *'
+    # Run weekly on Monday at 03:07 UTC (off-peak minute)
+    - cron: '7 3 * * 1'
   workflow_dispatch:
 
 jobs:
