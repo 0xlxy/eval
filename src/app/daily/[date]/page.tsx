@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { ScoreBadge } from "@/components/score-badge";
+import { KeyboardNav } from "@/components/keyboard-nav";
 import { Brain, GitCommit, Users, GitPullRequest } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +62,10 @@ export default async function DailyPage({
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
+      <KeyboardNav
+        prevHref={prevDate ? `/daily/${prevDate}` : null}
+        nextHref={nextDate ? `/daily/${nextDate}` : null}
+      />
       {/* Navigation */}
       <div className="flex items-center justify-between">
         {prevDate ? (
@@ -70,7 +75,14 @@ export default async function DailyPage({
         ) : (
           <span />
         )}
-        <h1 className="text-xl font-bold">Daily Report: {date}</h1>
+        <div className="text-center">
+          <h1 className="text-xl font-bold">Daily Report: {date}</h1>
+          <p className="text-xs text-muted-foreground mt-1">
+            Use <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">←</kbd>{" "}
+            <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">→</kbd> to
+            navigate
+          </p>
+        </div>
         {nextDate ? (
           <Link href={`/daily/${nextDate}`} className="text-sm text-primary hover:underline">
             {nextDate} &rarr;
