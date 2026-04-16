@@ -184,15 +184,18 @@ export default async function DashboardPage() {
             <p className="text-xs text-muted-foreground">Jan 1 – Apr 15, 2026</p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Engineers</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalEngineers[0]?.cnt || 0}</div>
-          </CardContent>
-        </Card>
+        <Link href="/engineers">
+          <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Engineers</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalEngineers[0]?.cnt || 0}</div>
+              <p className="text-xs text-muted-foreground">Click to view details</p>
+            </CardContent>
+          </Card>
+        </Link>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Active Repos</CardTitle>
