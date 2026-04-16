@@ -229,10 +229,16 @@ export default async function DashboardPage() {
                 </TableHeader>
                 <TableBody>
                   {weeks.map((w) => (
-                    <TableRow key={w.start}>
-                      <TableCell className="font-mono font-medium">{w.weekLabel}</TableCell>
+                    <TableRow key={w.start} className="hover:bg-muted/50">
+                      <TableCell className="font-mono font-medium">
+                        <Link href={`/week/${w.start}`} className="hover:underline">
+                          {w.weekLabel}
+                        </Link>
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {w.start} → {w.end}
+                        <Link href={`/week/${w.start}`} className="hover:underline">
+                          {w.start} → {w.end}
+                        </Link>
                       </TableCell>
                       <TableCell className="text-right font-mono font-bold">{w.commits}</TableCell>
                       <TableCell className="text-right font-mono">{w.engineers}</TableCell>
