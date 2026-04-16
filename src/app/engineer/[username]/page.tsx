@@ -207,20 +207,20 @@ export default async function EngineerPage({
                 <TableHead className="text-right">Commits</TableHead>
                 <TableHead className="text-right">Lines</TableHead>
                 <TableHead>Repos</TableHead>
-                <TableHead className="text-right">Score</TableHead>
-                <TableHead>Summary</TableHead>
+                <TableHead className="text-center">Score</TableHead>
+                <TableHead className="w-[45%]">Summary</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {analyses.map((a) => {
                 const repos = reposByDate.get(a.date) || [];
                 return (
-                  <TableRow key={a.date}>
+                  <TableRow key={a.date} className="align-top">
                     <TableCell className="font-mono text-sm">{a.date}</TableCell>
                     <TableCell className="text-right font-mono">
                       {a.commitCount}
                     </TableCell>
-                    <TableCell className="text-right font-mono text-xs">
+                    <TableCell className="text-right font-mono text-xs whitespace-nowrap">
                       <span className="text-emerald-600">
                         +{a.totalLinesAdded}
                       </span>
@@ -228,7 +228,7 @@ export default async function EngineerPage({
                       <span className="text-red-600">-{a.totalLinesDeleted}</span>
                     </TableCell>
                     <TableCell className="text-xs">
-                      <div className="flex flex-wrap gap-1 max-w-[200px]">
+                      <div className="flex flex-wrap gap-1">
                         {repos.map((r) => (
                           <span
                             key={r.repoName}
@@ -242,10 +242,10 @@ export default async function EngineerPage({
                         ))}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-center">
                       <ScoreBadge score={a.efficiencyScore || 0} />
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground truncate max-w-[250px]">
+                    <TableCell className="text-xs text-muted-foreground leading-relaxed whitespace-normal">
                       {a.workSummary}
                     </TableCell>
                   </TableRow>
