@@ -1,0 +1,39 @@
+name: Daily Analysis
+
+on:
+  schedule:
+    # Run daily at 03:07 UTC (off-peak minute)
+    - cron: '7 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+
+      # Step 1: Fetch latest commits (incremental via fetch_log dedupe)
+      - name: Fetch latest commits
+        run: node --max-old-space-size=512 ./node_modules/.bin/tsx scripts/backfill-cron.ts 2026-01-01 $(date -u +%Y-%m-%d)
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          GH_PAT: ${{ secrets.GH_PAT }}
+          GITHUB_ORG: Sofamon
+          FETCH_MAX_BRANCHES_PER_REPO: '50'
+
+      # Step 2: Run Claude AI analysis on all dates with commits
+      - name: Analyze with Claude
+        run: node --max-old-space-size=512 ./node_modules/.bin/tsx scripts/analyze-real.ts
+        env:
+          TURSO_DATABASE_URL: ${{ secrets.TURSO_DATABASE_URL }}
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
