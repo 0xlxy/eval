@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { KeyboardNav } from "@/components/keyboard-nav";
 import { GitCommit, Users, FolderGit2, Calendar } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -146,15 +147,24 @@ export default async function WeekPage({
 
   return (
     <div className="space-y-6">
+      <KeyboardNav
+        prevHref={`/week/${prevWeek}`}
+        nextHref={`/week/${nextWeek}`}
+      />
       {/* Navigation */}
       <div className="flex items-center justify-between">
         <Link href={`/week/${prevWeek}`} className="text-sm text-primary hover:underline">
           &larr; {getWeekLabel(prevWeek)}
         </Link>
-        <div>
+        <div className="text-center">
           <h1 className="text-xl font-bold">{weekLabel}</h1>
-          <p className="text-sm text-muted-foreground text-center">
+          <p className="text-sm text-muted-foreground">
             {start} → {end}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Use <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">←</kbd>{" "}
+            <kbd className="px-1 py-0.5 bg-muted rounded text-[10px]">→</kbd> to
+            navigate
           </p>
         </div>
         <Link href={`/week/${nextWeek}`} className="text-sm text-primary hover:underline">
