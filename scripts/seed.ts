@@ -6,6 +6,17 @@ import { createClient } from "@libsql/client";
 import * as schema from "../src/lib/db/schema";
 import { format, subDays } from "date-fns";
 
+// Safety: refuse to run seed against a remote Turso database.
+// Seed data uses fake SHAs (`202604-xxxxx`) which would pollute production.
+const dbUrl = process.env.TURSO_DATABASE_URL || "";
+if (!dbUrl.startsWith("file:") && !process.argv.includes("--yes-pollute-remote")) {
+  console.error(
+    `Refusing to seed a non-local DB (${dbUrl}).\n` +
+      `Set TURSO_DATABASE_URL to a file:// URL, or pass --yes-pollute-remote if you really mean it.`
+  );
+  process.exit(1);
+}
+
 const client = createClient({
   url: process.env.TURSO_DATABASE_URL!,
   authToken: process.env.TURSO_AUTH_TOKEN,
