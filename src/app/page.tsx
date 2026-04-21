@@ -174,16 +174,18 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       {/* Overall Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Commits</CardTitle>
-            <GitCommit className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalCommits}</div>
-            <p className="text-xs text-muted-foreground">Jan 1 – Apr 15, 2026</p>
-          </CardContent>
-        </Card>
+        <Link href="/commits">
+          <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Total Commits</CardTitle>
+              <GitCommit className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalCommits}</div>
+              <p className="text-xs text-muted-foreground">Click to view details</p>
+            </CardContent>
+          </Card>
+        </Link>
         <Link href="/engineers">
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -196,15 +198,18 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </Link>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Active Repos</CardTitle>
-            <FolderGit2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalRepos[0]?.cnt || 0}</div>
-          </CardContent>
-        </Card>
+        <Link href="/repos">
+          <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Active Repos</CardTitle>
+              <FolderGit2 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalRepos[0]?.cnt || 0}</div>
+              <p className="text-xs text-muted-foreground">Click to view details</p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Weekly Overview + Engineer Leaderboard */}
