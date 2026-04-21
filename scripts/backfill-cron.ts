@@ -76,7 +76,20 @@ function dateRange(start: string, end: string): string[] {
   return dates;
 }
 
+function todayUTC(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function isRecentDate(date: string): boolean {
+  // Always re-fetch today and yesterday — commits pushed after the previous
+  // run would otherwise be skipped forever because of the fetch_log entry.
+  const today = todayUTC();
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  return date === today || date === yesterday;
+}
+
 async function isFetched(date: string, repoName: string, branch: string): Promise<boolean> {
+  if (isRecentDate(date)) return false;
   const row = await db.query.fetchLog.findFirst({
     where: and(
       eq(schema.fetchLog.date, date),
@@ -88,6 +101,23 @@ async function isFetched(date: string, repoName: string, branch: string): Promis
 }
 
 async function markFetched(date: string, repoName: string, branch: string, commitsFetched: number) {
+  // For recent dates (today/yesterday), update the existing row so commits_fetched reflects the latest count.
+  if (isRecentDate(date)) {
+    const existing = await db.query.fetchLog.findFirst({
+      where: and(
+        eq(schema.fetchLog.date, date),
+        eq(schema.fetchLog.repoName, repoName),
+        eq(schema.fetchLog.branch, branch)
+      ),
+    });
+    if (existing) {
+      await db
+        .update(schema.fetchLog)
+        .set({ commitsFetched, fetchedAt: new Date() })
+        .where(eq(schema.fetchLog.id, existing.id));
+      return;
+    }
+  }
   await db
     .insert(schema.fetchLog)
     .values({ date, repoName, branch, commitsFetched })
