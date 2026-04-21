@@ -146,7 +146,17 @@ export default async function WeekPage({
     engineerMap.set(row.username, existing);
   }
   const engineers = [...engineerMap.entries()].sort((a, b) => b[1].total - a[1].total);
-  const reposList = [...repoSet].sort();
+  // Fixed repo order so column positions never shift between weeks.
+  const TARGET_REPOS = [
+    "wishwish-unity-v2",
+    "wishwish-ios",
+    "wishwish-contracts",
+    "wishwish-pc",
+    "wishwish-backend-mono",
+  ];
+  const reposList = TARGET_REPOS;
+  // Silence unused-var lint — we intentionally ignore what repos actually had activity.
+  void repoSet;
 
   return (
     <div className="space-y-6">
@@ -235,14 +245,14 @@ export default async function WeekPage({
           <CardDescription>Click a date to drill into that day</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
+          <Table className="table-fixed w-full">
             <TableHeader>
               <TableRow>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Commits</TableHead>
-                <TableHead className="text-right">Engineers</TableHead>
-                <TableHead className="text-right">Repos</TableHead>
-                <TableHead className="text-right">Lines</TableHead>
+                <TableHead className="w-[20%]">Date</TableHead>
+                <TableHead className="w-[15%] text-right">Commits</TableHead>
+                <TableHead className="w-[15%] text-right">Engineers</TableHead>
+                <TableHead className="w-[15%] text-right">Repos</TableHead>
+                <TableHead className="w-[35%] text-right">Lines</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -286,18 +296,18 @@ export default async function WeekPage({
           </CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <Table>
+          <Table className="table-fixed w-full">
             <TableHeader>
               <TableRow>
-                <TableHead className="sticky left-0 bg-background">Engineer</TableHead>
+                <TableHead className="w-[18%] sticky left-0 bg-background">Engineer</TableHead>
                 {reposList.map((r) => (
-                  <TableHead key={r} className="text-right">
-                    <Link href={`/repo/${r}`} className="hover:underline">
+                  <TableHead key={r} className="w-[13%] text-right">
+                    <Link href={`/repo/${r}`} className="hover:underline truncate block">
                       {r}
                     </Link>
                   </TableHead>
                 ))}
-                <TableHead className="text-right font-bold">Total</TableHead>
+                <TableHead className="w-[17%] text-right font-bold">Total</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
