@@ -1,6 +1,5 @@
 import { db, schema } from "@/lib/db";
 import { eq, desc } from "drizzle-orm";
-import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   Card,
@@ -27,8 +26,6 @@ export default async function DailyPage({
     where: eq(schema.dailyOrgSummaries.date, date),
   });
 
-  if (!orgSummary) notFound();
-
   const analyses = await db
     .select({
       username: schema.engineers.username,
@@ -50,15 +47,18 @@ export default async function DailyPage({
     .where(eq(schema.dailyAnalyses.date, date))
     .orderBy(desc(schema.dailyAnalyses.efficiencyScore));
 
-  // Adjacent dates for navigation
+  // Adjacent dates for navigation (sorted descending — newest first)
   const allDates = await db
     .select({ date: schema.dailyOrgSummaries.date })
     .from(schema.dailyOrgSummaries)
     .orderBy(desc(schema.dailyOrgSummaries.date));
 
-  const currentIdx = allDates.findIndex((d) => d.date === date);
-  const prevDate = currentIdx < allDates.length - 1 ? allDates[currentIdx + 1]?.date : null;
-  const nextDate = currentIdx > 0 ? allDates[currentIdx - 1]?.date : null;
+  // If current date is missing, pick the closest neighbors anyway so the user
+  // can still navigate away. prevDate = nearest earlier, nextDate = nearest later.
+  const prevDate =
+    allDates.find((d) => d.date < date)?.date || null;
+  const nextDate =
+    [...allDates].reverse().find((d) => d.date > date)?.date || null;
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -92,6 +92,28 @@ export default async function DailyPage({
         )}
       </div>
 
+      {!orgSummary && (
+        <Card>
+          <CardContent className="py-10 text-center space-y-3">
+            <p className="text-muted-foreground">No activity recorded for {date}.</p>
+            <div className="flex items-center justify-center gap-3 text-sm">
+              {prevDate && (
+                <Link href={`/daily/${prevDate}`} className="text-primary hover:underline">
+                  &larr; Go to {prevDate}
+                </Link>
+              )}
+              {nextDate && (
+                <Link href={`/daily/${nextDate}`} className="text-primary hover:underline">
+                  Go to {nextDate} &rarr;
+                </Link>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {orgSummary && (
+        <>
       {/* Overview Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card>
@@ -213,6 +235,8 @@ export default async function DailyPage({
           </Card>
         ))}
       </div>
+        </>
+      )}
     </div>
   );
 }
