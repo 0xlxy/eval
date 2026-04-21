@@ -45,7 +45,10 @@ export default async function WeekPage({
   const end = addDays(start, 6);
   const weekLabel = getWeekLabel(start);
   const prevWeek = addDays(start, -7);
-  const nextWeek = addDays(start, 7);
+  // Cap nextWeek at the current week — no navigating into the future.
+  const today = new Date().toISOString().slice(0, 10);
+  const candidateNext = addDays(start, 7);
+  const nextWeek: string | null = candidateNext > today ? null : candidateNext;
 
   const startTs = new Date(`${start}T00:00:00Z`).getTime() / 1000;
   const endTs = new Date(`${end}T23:59:59Z`).getTime() / 1000;
@@ -149,7 +152,7 @@ export default async function WeekPage({
     <div className="space-y-6">
       <KeyboardNav
         prevHref={`/week/${prevWeek}`}
-        nextHref={`/week/${nextWeek}`}
+        nextHref={nextWeek ? `/week/${nextWeek}` : null}
       />
       {/* Navigation */}
       <div className="flex items-center justify-between">
@@ -167,9 +170,13 @@ export default async function WeekPage({
             navigate
           </p>
         </div>
-        <Link href={`/week/${nextWeek}`} className="text-sm text-primary hover:underline">
-          {getWeekLabel(nextWeek)} &rarr;
-        </Link>
+        {nextWeek ? (
+          <Link href={`/week/${nextWeek}`} className="text-sm text-primary hover:underline">
+            {getWeekLabel(nextWeek)} &rarr;
+          </Link>
+        ) : (
+          <span className="w-[60px]" />
+        )}
       </div>
 
       {/* Stats */}
