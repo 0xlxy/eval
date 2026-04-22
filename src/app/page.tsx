@@ -1,6 +1,7 @@
 import { db, schema } from "@/lib/db";
 import { desc, sql, and, eq } from "drizzle-orm";
 import Link from "next/link";
+import { isBotUsername } from "@/lib/filters";
 import {
   Card,
   CardContent,
@@ -124,7 +125,7 @@ export default async function DashboardPage() {
     .from(schema.commits);
 
   // Engineer leaderboard (all time from commits)
-  const engineerStats = await db
+  const engineerStatsRaw = await db
     .select({
       username: schema.engineers.username,
       displayName: schema.engineers.displayName,
@@ -136,6 +137,11 @@ export default async function DashboardPage() {
     .innerJoin(schema.engineers, eq(schema.commits.engineerId, schema.engineers.id))
     .groupBy(schema.engineers.id)
     .orderBy(desc(sql`count(*)`));
+
+  // Bots are hidden from the leaderboard — they'd otherwise dominate or skew it.
+  const engineerStats = engineerStatsRaw.filter(
+    (e) => !isBotUsername(e.username)
+  );
 
   // Daily breakdown for latest week
   const latestWeek = weeks[0];

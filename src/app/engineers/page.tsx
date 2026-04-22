@@ -1,6 +1,7 @@
 import { db, schema } from "@/lib/db";
-import { desc, sql, eq } from "drizzle-orm";
+import { desc, sql, eq, and } from "drizzle-orm";
 import Link from "next/link";
+import { isBotUsername, VENDORED_LINE_THRESHOLD } from "@/lib/filters";
 import {
   Card,
   CardContent,
@@ -37,14 +38,15 @@ interface EngineerMetrics {
 }
 
 /**
- * Composite efficiency score (0-100) combining:
- * - Volume: commits and lines changed (40%)
- * - Consistency: active days (30%)
- * - Breadth: number of distinct repos touched (15%)
- * - Quality proxy: avg lines per commit — penalizes mega-commits and zero-stat commits (15%)
+ * Composite efficiency score (0-100), all sub-metrics normalized to team max:
+ * - Volume (45%): commit count + non-vendored lines changed
+ * - Consistency (35%): distinct active days
+ * - Breadth (20%): distinct repos touched
  *
- * Each sub-metric is normalized relative to the max across the team,
- * so scores are relative to the current cohort.
+ * Vendored / generated commits (lockfile dumps, etc) are already stripped
+ * upstream, so line totals here reflect real authored work. The older
+ * "avg lines per commit" proxy was dropped — commit size is ambiguous on its
+ * own and mostly penalized valid refactors.
  */
 function computeScores(engineers: Omit<EngineerMetrics, "score" | "rank">[]): EngineerMetrics[] {
   if (engineers.length === 0) return [];
@@ -55,40 +57,33 @@ function computeScores(engineers: Omit<EngineerMetrics, "score" | "rank">[]): En
   const maxRepos = Math.max(...engineers.map((e) => e.repos), 1);
 
   const scored = engineers.map((e) => {
-    // Volume: geometric blend of commit count and total line changes
     const commitNorm = e.commits / maxCommits;
     const linesNorm = (e.linesAdded + e.linesDeleted) / maxLines;
     const volume = (commitNorm + linesNorm) / 2;
-
-    // Consistency
     const consistency = e.activeDays / maxActiveDays;
-
-    // Breadth
     const breadth = e.repos / maxRepos;
 
-    // Quality proxy — favor "healthy" commit size (30-500 lines)
-    // Commits that are too small (<5 lines) or huge (>2000) get penalized
-    const avgLines = e.avgLinesPerCommit;
-    let quality = 0.5;
-    if (avgLines >= 20 && avgLines <= 500) quality = 1.0;
-    else if (avgLines >= 5 && avgLines < 20) quality = 0.7;
-    else if (avgLines > 500 && avgLines <= 2000) quality = 0.7;
-    else if (avgLines > 2000) quality = 0.3;
-    else if (avgLines < 5) quality = 0.3;
-
     const score = Math.round(
-      (volume * 0.4 + consistency * 0.3 + breadth * 0.15 + quality * 0.15) * 100
+      (volume * 0.45 + consistency * 0.35 + breadth * 0.2) * 100
     );
-
     return { ...e, score };
   });
 
-  // Rank
   scored.sort((a, b) => b.score - a.score);
   return scored.map((e, i) => ({ ...e, rank: i + 1 }));
 }
 
-export default async function EngineersPage() {
+export default async function EngineersPage(props: {
+  searchParams?: Promise<{ includeBots?: string; includeVendored?: string }>;
+}) {
+  const searchParams = (await props.searchParams) || {};
+  const includeBots = searchParams.includeBots === "1";
+  const includeVendored = searchParams.includeVendored === "1";
+
+  const vendoredFilter = includeVendored
+    ? sql`1=1`
+    : sql`${schema.commits.linesAdded} + ${schema.commits.linesDeleted} < ${VENDORED_LINE_THRESHOLD}`;
+
   // Aggregate commit data per engineer
   const aggregates = await db
     .select({
@@ -106,8 +101,14 @@ export default async function EngineersPage() {
       schema.engineers,
       eq(schema.commits.engineerId, schema.engineers.id)
     )
+    .where(and(vendoredFilter))
     .groupBy(schema.engineers.id)
     .orderBy(desc(sql`count(*)`));
+
+  const filteredAggregates = includeBots
+    ? aggregates
+    : aggregates.filter((a) => !isBotUsername(a.username));
+  const hiddenBotCount = aggregates.length - filteredAggregates.length;
 
   // Top repo per engineer
   const topRepos = await db
@@ -129,7 +130,7 @@ export default async function EngineersPage() {
     }
   }
 
-  const base = aggregates.map((e) => ({
+  const base = filteredAggregates.map((e) => ({
     username: e.username,
     displayName: e.displayName || e.username,
     commits: e.commits,
@@ -158,9 +159,30 @@ export default async function EngineersPage() {
       <div>
         <h1 className="text-2xl font-bold">Engineer Evaluation</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Efficiency score based on commit volume, consistency, repo breadth, and commit quality.
-          All metrics span Jan 1 – Apr 15, 2026.
+          Score = volume (45%) + consistency (35%) + breadth (20%), normalized to team max.
+          {!includeBots && hiddenBotCount > 0 && (
+            <>
+              {" "}
+              <span className="italic">
+                {hiddenBotCount} bot account{hiddenBotCount > 1 ? "s" : ""} hidden.
+              </span>
+            </>
+          )}
         </p>
+        <div className="flex gap-2 mt-3 text-xs">
+          <Link
+            href={`?${new URLSearchParams({ ...(includeBots ? {} : { includeBots: "1" }), ...(includeVendored ? { includeVendored: "1" } : {}) })}`}
+            className={`px-2 py-1 rounded border ${includeBots ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}
+          >
+            {includeBots ? "✓ " : ""}Show bots
+          </Link>
+          <Link
+            href={`?${new URLSearchParams({ ...(includeBots ? { includeBots: "1" } : {}), ...(includeVendored ? {} : { includeVendored: "1" }) })}`}
+            className={`px-2 py-1 rounded border ${includeVendored ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}
+          >
+            {includeVendored ? "✓ " : ""}Include vendored commits (≥{VENDORED_LINE_THRESHOLD} lines)
+          </Link>
+        </div>
       </div>
 
       {/* Summary stats */}
@@ -303,24 +325,21 @@ export default async function EngineersPage() {
         </CardHeader>
         <CardContent className="text-sm space-y-2 text-muted-foreground">
           <p>
-            <strong className="text-foreground">Volume (40%)</strong> — commit count and total
-            lines changed, normalized to the team max.
+            <strong className="text-foreground">Volume (45%)</strong> — commit count and total
+            non-vendored lines changed, normalized to the team max.
           </p>
           <p>
-            <strong className="text-foreground">Consistency (30%)</strong> — number of distinct
+            <strong className="text-foreground">Consistency (35%)</strong> — number of distinct
             active days, normalized to the team max.
           </p>
           <p>
-            <strong className="text-foreground">Breadth (15%)</strong> — number of repos touched,
+            <strong className="text-foreground">Breadth (20%)</strong> — number of repos touched,
             normalized to the team max.
           </p>
-          <p>
-            <strong className="text-foreground">Quality (15%)</strong> — commit size heuristic;
-            commits averaging 20–500 lines scored highest, tiny or mega commits penalized.
-          </p>
           <p className="text-xs italic mt-4">
-            All scores are relative to the current cohort. A score of 100 means
-            best-in-team across all four dimensions.
+            Commits ≥ {VENDORED_LINE_THRESHOLD} lines are treated as vendored/generated
+            and excluded by default. Bot accounts are hidden by default. Use the toggles
+            above to include them.
           </p>
         </CardContent>
       </Card>

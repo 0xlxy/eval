@@ -1,6 +1,7 @@
 import { db, schema } from "@/lib/db";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -271,9 +272,12 @@ export default async function EngineerPage({
                 key={c.sha}
                 className="flex items-start gap-3 py-2 border-b last:border-0"
               >
-                <code className="text-xs text-muted-foreground mt-0.5">
+                <Link
+                  href={`/commit/${c.sha.substring(0, 12)}`}
+                  className="text-xs text-muted-foreground mt-0.5 font-mono hover:text-primary hover:underline"
+                >
                   {c.sha.substring(0, 7)}
-                </code>
+                </Link>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm truncate">{c.message.split("\n")[0]}</p>
                   <p className="text-xs text-muted-foreground">
