@@ -182,6 +182,12 @@ export default async function EngineersPage(props: {
           >
             {includeVendored ? "✓ " : ""}Include vendored commits (≥{VENDORED_LINE_THRESHOLD} lines)
           </Link>
+          <a
+            href={`/engineers/export?${new URLSearchParams({ ...(includeBots ? { includeBots: "1" } : {}), ...(includeVendored ? { includeVendored: "1" } : {}) })}`}
+            className="px-2 py-1 rounded border bg-background hover:bg-muted inline-flex items-center gap-1"
+          >
+            ↓ Export CSV
+          </a>
         </div>
       </div>
 

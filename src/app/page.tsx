@@ -1,7 +1,13 @@
 import { db, schema } from "@/lib/db";
-import { desc, sql, and, eq } from "drizzle-orm";
+import { desc, sql, and } from "drizzle-orm";
 import Link from "next/link";
-import { isBotUsername } from "@/lib/filters";
+import {
+  getWeeklyStats,
+  getTotalCounts,
+  getEngineerLeaderboard,
+  getRepoActivity,
+  getWeekRangeStats,
+} from "@/lib/cached-queries";
 import {
   Card,
   CardContent,
@@ -60,17 +66,8 @@ interface WeekData {
 }
 
 export default async function DashboardPage() {
-  // Get all commit dates grouped by week
-  const weeklyStats = await db
-    .select({
-      date: sql<string>`date(${schema.commits.committedAt}, 'unixepoch')`,
-      commits: sql<number>`count(*)`,
-      engineers: sql<number>`count(distinct ${schema.commits.engineerId})`,
-      repos: sql<number>`count(distinct ${schema.commits.repoId})`,
-    })
-    .from(schema.commits)
-    .groupBy(sql`date(${schema.commits.committedAt}, 'unixepoch')`)
-    .orderBy(desc(sql`date(${schema.commits.committedAt}, 'unixepoch')`));
+  // Get all commit dates grouped by week (cached)
+  const weeklyStats = await getWeeklyStats();
 
   // Aggregate into weeks
   const weekMap = new Map<string, WeekData>();
@@ -80,7 +77,6 @@ export default async function DashboardPage() {
     const existing = weekMap.get(key);
     if (existing) {
       existing.commits += day.commits;
-      // engineers/repos are approximate at week level (can overlap across days)
     } else {
       weekMap.set(key, {
         weekLabel: getWeekLabel(start),
@@ -93,55 +89,23 @@ export default async function DashboardPage() {
     }
   }
 
-  // Get accurate weekly engineer/repo counts
-  for (const [, week] of weekMap) {
-    const startTs = new Date(`${week.start}T00:00:00Z`).getTime() / 1000;
-    const endTs = new Date(`${week.end}T23:59:59Z`).getTime() / 1000;
-    const stats = await db
-      .select({
-        engineers: sql<number>`count(distinct ${schema.commits.engineerId})`,
-        repos: sql<number>`count(distinct ${schema.commits.repoId})`,
-      })
-      .from(schema.commits)
-      .where(
-        and(
-          sql`${schema.commits.committedAt} >= ${startTs}`,
-          sql`${schema.commits.committedAt} <= ${endTs}`
-        )
-      );
-    week.engineers = stats[0]?.engineers || 0;
-    week.repos = stats[0]?.repos || 0;
-  }
+  // Fill per-week engineer/repo counts (each call cached by its args)
+  await Promise.all(
+    [...weekMap.values()].map(async (week) => {
+      const startTs = new Date(`${week.start}T00:00:00Z`).getTime() / 1000;
+      const endTs = new Date(`${week.end}T23:59:59Z`).getTime() / 1000;
+      const { engineers, repos } = await getWeekRangeStats(startTs, endTs);
+      week.engineers = engineers;
+      week.repos = repos;
+    })
+  );
 
   const weeks = [...weekMap.values()].sort((a, b) => b.start.localeCompare(a.start));
 
-  // Overall stats
+  // Overall stats (cached)
   const totalCommits = weeks.reduce((s, w) => s + w.commits, 0);
-  const totalEngineers = await db
-    .select({ cnt: sql<number>`count(distinct ${schema.commits.engineerId})` })
-    .from(schema.commits);
-  const totalRepos = await db
-    .select({ cnt: sql<number>`count(distinct ${schema.commits.repoId})` })
-    .from(schema.commits);
-
-  // Engineer leaderboard (all time from commits)
-  const engineerStatsRaw = await db
-    .select({
-      username: schema.engineers.username,
-      displayName: schema.engineers.displayName,
-      commits: sql<number>`count(*)`,
-      linesAdded: sql<number>`sum(${schema.commits.linesAdded})`,
-      linesDeleted: sql<number>`sum(${schema.commits.linesDeleted})`,
-    })
-    .from(schema.commits)
-    .innerJoin(schema.engineers, eq(schema.commits.engineerId, schema.engineers.id))
-    .groupBy(schema.engineers.id)
-    .orderBy(desc(sql`count(*)`));
-
-  // Bots are hidden from the leaderboard — they'd otherwise dominate or skew it.
-  const engineerStats = engineerStatsRaw.filter(
-    (e) => !isBotUsername(e.username)
-  );
+  const { engineers: totalEngineers, repos: totalRepos } = await getTotalCounts();
+  const engineerStats = await getEngineerLeaderboard();
 
   // Daily breakdown for latest week
   const latestWeek = weeks[0];
@@ -164,17 +128,8 @@ export default async function DashboardPage() {
       .orderBy(desc(sql`date(${schema.commits.committedAt}, 'unixepoch')`));
   }
 
-  // Repo activity (all time)
-  const repoActivity = await db
-    .select({
-      name: schema.repos.name,
-      commits: sql<number>`count(*)`,
-    })
-    .from(schema.commits)
-    .innerJoin(schema.repos, eq(schema.commits.repoId, schema.repos.id))
-    .groupBy(schema.repos.name)
-    .orderBy(desc(sql`count(*)`))
-    .limit(10);
+  // Repo activity (all time, cached)
+  const repoActivity = await getRepoActivity();
 
   return (
     <div className="space-y-6">
@@ -199,7 +154,7 @@ export default async function DashboardPage() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalEngineers[0]?.cnt || 0}</div>
+              <div className="text-2xl font-bold">{totalEngineers}</div>
               <p className="text-xs text-muted-foreground">Click to view details</p>
             </CardContent>
           </Card>
@@ -211,7 +166,7 @@ export default async function DashboardPage() {
               <FolderGit2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalRepos[0]?.cnt || 0}</div>
+              <div className="text-2xl font-bold">{totalRepos}</div>
               <p className="text-xs text-muted-foreground">Click to view details</p>
             </CardContent>
           </Card>
