@@ -46,10 +46,28 @@ export default async function EngineerPage({
 
   const latestAnalysis = analyses[0];
 
-  // Score trend data
+  // Team-average score per date over the same window — used as a baseline on the trend chart.
+  const dates = analyses.map((a) => a.date);
+  let baselineByDate = new Map<string, number>();
+  if (dates.length > 0) {
+    const teamAverages = await db
+      .select({
+        date: schema.dailyAnalyses.date,
+        avg: sql<number>`avg(${schema.dailyAnalyses.efficiencyScore})`,
+      })
+      .from(schema.dailyAnalyses)
+      .where(sql`${schema.dailyAnalyses.date} IN ${dates}`)
+      .groupBy(schema.dailyAnalyses.date);
+    baselineByDate = new Map(
+      teamAverages.map((t) => [t.date, Math.round(t.avg || 0)])
+    );
+  }
+
+  // Score trend data with team baseline overlay
   const trendData = [...analyses].reverse().map((a) => ({
     date: a.date.substring(5), // MM-DD
     value: a.efficiencyScore || 0,
+    baseline: baselineByDate.get(a.date),
   }));
 
   // Repos per day for this engineer
@@ -149,7 +167,10 @@ export default async function EngineerPage({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ScoreTrendChart data={trendData} />
+            <ScoreTrendChart
+              data={trendData}
+              engineerName={engineer.displayName || engineer.username}
+            />
           </CardContent>
         </Card>
       )}

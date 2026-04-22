@@ -7,18 +7,26 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  Legend,
   ResponsiveContainer,
   BarChart,
   Bar,
 } from "recharts";
 
-interface TrendData {
+interface TrendPoint {
   date: string;
   value: number;
-  label?: string;
+  baseline?: number;
 }
 
-export function ScoreTrendChart({ data }: { data: TrendData[] }) {
+export function ScoreTrendChart({
+  data,
+  engineerName,
+}: {
+  data: TrendPoint[];
+  engineerName?: string;
+}) {
+  const hasBaseline = data.some((d) => typeof d.baseline === "number");
   return (
     <ResponsiveContainer width="100%" height={300}>
       <LineChart data={data}>
@@ -26,13 +34,26 @@ export function ScoreTrendChart({ data }: { data: TrendData[] }) {
         <XAxis dataKey="date" tick={{ fontSize: 12 }} />
         <YAxis domain={[0, 100]} />
         <Tooltip />
+        {hasBaseline && <Legend />}
         <Line
           type="monotone"
           dataKey="value"
           stroke="#2563eb"
           strokeWidth={2}
           dot={{ r: 3 }}
+          name={engineerName || "Engineer"}
         />
+        {hasBaseline && (
+          <Line
+            type="monotone"
+            dataKey="baseline"
+            stroke="#6b7280"
+            strokeDasharray="5 5"
+            strokeWidth={1.5}
+            dot={false}
+            name="Team average"
+          />
+        )}
       </LineChart>
     </ResponsiveContainer>
   );

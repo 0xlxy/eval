@@ -2,6 +2,12 @@ import { db, schema } from "@/lib/db";
 import { desc, sql, eq } from "drizzle-orm";
 import Link from "next/link";
 import {
+  extractCommitTag,
+  TAG_ORDER,
+  TAG_COLORS,
+  type CommitTag,
+} from "@/lib/commit-tags";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -66,6 +72,21 @@ export default async function CommitsPage() {
     })
     .from(schema.commits)
     .groupBy(sql`date(${schema.commits.committedAt}, 'unixepoch')`);
+
+  // Tag breakdown — parsed client-side from commit messages
+  const allMessages = await db
+    .select({ message: schema.commits.message })
+    .from(schema.commits);
+  const tagCounts = new Map<CommitTag, number>();
+  for (const row of allMessages) {
+    const tag = extractCommitTag(row.message);
+    tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
+  }
+  const tagStats = TAG_ORDER.map((tag) => ({
+    tag,
+    count: tagCounts.get(tag) || 0,
+  })).filter((t) => t.count > 0);
+  const totalTagged = tagStats.reduce((s, t) => s + t.count, 0);
 
   const weekMap = new Map<string, number>();
   for (const d of byWeek) {
@@ -136,6 +157,44 @@ export default async function CommitsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* By Type (conventional commits) */}
+      <Card>
+        <CardHeader>
+          <CardTitle>By Type</CardTitle>
+          <CardDescription>
+            Commit message prefix (conventional commits). Uncategorized are
+            grouped as &quot;other&quot;.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* Stacked bar */}
+          <div className="h-3 w-full rounded overflow-hidden flex border">
+            {tagStats.map((t) => (
+              <div
+                key={t.tag}
+                className={TAG_COLORS[t.tag].split(" ")[0]}
+                style={{ width: `${(t.count / totalTagged) * 100}%` }}
+                title={`${t.tag}: ${t.count}`}
+              />
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {tagStats.map((t) => (
+              <span
+                key={t.tag}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${TAG_COLORS[t.tag]}`}
+              >
+                <span className="font-mono font-medium">{t.tag}</span>
+                <span className="font-mono">{t.count}</span>
+                <span className="opacity-70">
+                  ({Math.round((t.count / totalTagged) * 100)}%)
+                </span>
+              </span>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* By Repo */}
       <Card>

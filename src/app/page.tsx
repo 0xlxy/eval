@@ -32,6 +32,40 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function DeltaHint({
+  pct,
+  total,
+  label,
+}: {
+  pct: number | null;
+  total: number | string;
+  label: string;
+}) {
+  if (pct === null) {
+    return (
+      <p className="text-xs text-muted-foreground">
+        {total} {label}
+      </p>
+    );
+  }
+  const up = pct > 0;
+  const flat = pct === 0;
+  const color = flat
+    ? "text-muted-foreground"
+    : up
+      ? "text-emerald-600"
+      : "text-red-600";
+  const arrow = flat ? "→" : up ? "↑" : "↓";
+  return (
+    <p className="text-xs flex items-center gap-1 text-muted-foreground">
+      <span className={`font-medium ${color}`}>
+        {arrow} {Math.abs(pct)}%
+      </span>
+      <span>vs last week</span>
+    </p>
+  );
+}
+
 function getWeekLabel(mondayStr: string): string {
   // ISO week number from the Monday of the week
   const d = new Date(`${mondayStr}T00:00:00Z`);
@@ -131,43 +165,58 @@ export default async function DashboardPage() {
   // Repo activity (all time, cached)
   const repoActivity = await getRepoActivity();
 
+  // Week-over-week deltas for the top stat cards. "This week" = current ISO week,
+  // "last week" = previous ISO week. We compare commits, active engineers, and active repos.
+  const thisWeek = weeks[0];
+  const lastWeek = weeks[1];
+  function pct(now: number, prev: number): number | null {
+    if (prev === 0) return null;
+    return Math.round(((now - prev) / prev) * 100);
+  }
+  const delta = {
+    commits: thisWeek && lastWeek ? pct(thisWeek.commits, lastWeek.commits) : null,
+    engineers:
+      thisWeek && lastWeek ? pct(thisWeek.engineers, lastWeek.engineers) : null,
+    repos: thisWeek && lastWeek ? pct(thisWeek.repos, lastWeek.repos) : null,
+  };
+
   return (
     <div className="space-y-6">
-      {/* Overall Stats */}
+      {/* This-week stats with WoW delta (top row) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link href="/commits">
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Commits</CardTitle>
+              <CardTitle className="text-sm font-medium">Commits this week</CardTitle>
               <GitCommit className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalCommits}</div>
-              <p className="text-xs text-muted-foreground">Click to view details</p>
+              <div className="text-2xl font-bold">{thisWeek?.commits ?? 0}</div>
+              <DeltaHint pct={delta.commits} total={totalCommits} label="all-time" />
             </CardContent>
           </Card>
         </Link>
         <Link href="/engineers">
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Engineers</CardTitle>
+              <CardTitle className="text-sm font-medium">Active engineers</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalEngineers}</div>
-              <p className="text-xs text-muted-foreground">Click to view details</p>
+              <div className="text-2xl font-bold">{thisWeek?.engineers ?? 0}</div>
+              <DeltaHint pct={delta.engineers} total={totalEngineers} label="total" />
             </CardContent>
           </Card>
         </Link>
         <Link href="/repos">
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Active Repos</CardTitle>
+              <CardTitle className="text-sm font-medium">Active repos</CardTitle>
               <FolderGit2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{totalRepos}</div>
-              <p className="text-xs text-muted-foreground">Click to view details</p>
+              <div className="text-2xl font-bold">{thisWeek?.repos ?? 0}</div>
+              <DeltaHint pct={delta.repos} total={totalRepos} label="total" />
             </CardContent>
           </Card>
         </Link>
