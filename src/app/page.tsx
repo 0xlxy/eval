@@ -186,14 +186,14 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Link href="/commits">
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div>
-                <CardTitle className="text-sm font-medium">Commits this week</CardTitle>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Mon–Sun, across all tracked repos
+            <CardHeader className="flex flex-row items-start justify-between pb-2 gap-2">
+              <CardTitle className="text-sm font-medium">Commits this week</CardTitle>
+              <div className="flex flex-col items-end gap-1 text-right">
+                <GitCommit className="h-4 w-4 text-muted-foreground" />
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  Mon–Sun, all tracked repos
                 </p>
               </div>
-              <GitCommit className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{thisWeek?.commits ?? 0}</div>
@@ -203,14 +203,14 @@ export default async function DashboardPage() {
         </Link>
         <Link href="/engineers">
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div>
-                <CardTitle className="text-sm font-medium">Active engineers</CardTitle>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Engineers with ≥1 commit this week
+            <CardHeader className="flex flex-row items-start justify-between pb-2 gap-2">
+              <CardTitle className="text-sm font-medium">Active engineers</CardTitle>
+              <div className="flex flex-col items-end gap-1 text-right">
+                <Users className="h-4 w-4 text-muted-foreground" />
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  ≥1 commit this week
                 </p>
               </div>
-              <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{thisWeek?.engineers ?? 0}</div>
@@ -220,14 +220,14 @@ export default async function DashboardPage() {
         </Link>
         <Link href="/repos">
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div>
-                <CardTitle className="text-sm font-medium">Active repos</CardTitle>
-                <p className="text-[11px] text-muted-foreground mt-0.5">
-                  Repos with ≥1 commit this week
+            <CardHeader className="flex flex-row items-start justify-between pb-2 gap-2">
+              <CardTitle className="text-sm font-medium">Active repos</CardTitle>
+              <div className="flex flex-col items-end gap-1 text-right">
+                <FolderGit2 className="h-4 w-4 text-muted-foreground" />
+                <p className="text-[11px] text-muted-foreground leading-tight">
+                  ≥1 commit this week
                 </p>
               </div>
-              <FolderGit2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{thisWeek?.repos ?? 0}</div>
