@@ -153,6 +153,7 @@ export default async function WeekPage({
     "wishwish-contracts",
     "wishwish-pc",
     "wishwish-backend-mono",
+    "wishwish-backend-v2",
   ];
   const reposList = TARGET_REPOS;
   // Silence unused-var lint — we intentionally ignore what repos actually had activity.

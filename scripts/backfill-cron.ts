@@ -34,6 +34,7 @@ const TARGET_REPOS = [
   "wishwish-contracts",
   "wishwish-pc",
   "wishwish-backend-mono",
+  "wishwish-backend-v2",
 ];
 
 function createOctokit() {
