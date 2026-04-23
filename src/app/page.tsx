@@ -187,7 +187,12 @@ export default async function DashboardPage() {
         <Link href="/commits">
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Commits this week</CardTitle>
+              <div>
+                <CardTitle className="text-sm font-medium">Commits this week</CardTitle>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Mon–Sun, across all tracked repos
+                </p>
+              </div>
               <GitCommit className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -199,7 +204,12 @@ export default async function DashboardPage() {
         <Link href="/engineers">
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Active engineers</CardTitle>
+              <div>
+                <CardTitle className="text-sm font-medium">Active engineers</CardTitle>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Engineers with ≥1 commit this week
+                </p>
+              </div>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -211,7 +221,12 @@ export default async function DashboardPage() {
         <Link href="/repos">
           <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Active repos</CardTitle>
+              <div>
+                <CardTitle className="text-sm font-medium">Active repos</CardTitle>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Repos with ≥1 commit this week
+                </p>
+              </div>
               <FolderGit2 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
