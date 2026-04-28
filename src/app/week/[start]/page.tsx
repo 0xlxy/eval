@@ -186,17 +186,8 @@ export default async function WeekPage({
     summaryByEngineer.set(u, val.split("|").slice(1).join("|"));
   }
 
-  // Fixed repo order so column positions never shift between weeks.
-  const TARGET_REPOS = [
-    "wishwish-unity-v2",
-    "wishwish-ios",
-    "wishwish-contracts",
-    "wishwish-pc",
-    "wishwish-backend-mono",
-    "wishwish-backend-v2",
-  ];
-  const reposList = TARGET_REPOS;
-  // Silence unused-var lint — we intentionally ignore what repos actually had activity.
+  // Silence unused-var lint — repo set is no longer used now that we render
+  // per-engineer rows of only repos they touched.
   void repoSet;
 
   return (
@@ -328,80 +319,88 @@ export default async function WeekPage({
         </CardContent>
       </Card>
 
-      {/* Engineer × Repo Contribution Matrix */}
+      {/* Per-engineer contribution list */}
       <Card>
         <CardHeader>
-          <CardTitle>Contribution Matrix</CardTitle>
+          <CardTitle>Contributions by Engineer</CardTitle>
           <CardDescription>
-            Commits per engineer per repo. Tap an engineer or repo to see details.
+            What each engineer worked on this week, broken down by repo.
           </CardDescription>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <Table className="table-fixed w-full">
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[25%] sticky left-0 bg-background">Engineer</TableHead>
-                {reposList.map((r) => (
-                  <TableHead key={r} className="w-[10%] text-right">
-                    <Link href={`/repo/${r}`} className="hover:underline truncate block">
-                      {r}
-                    </Link>
-                  </TableHead>
-                ))}
-                <TableHead className="w-[15%] text-right font-bold">Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {engineers.map(([username, info]) => (
-                <TableRow key={username}>
-                  <TableCell className="sticky left-0 bg-background font-medium align-top">
-                    <Link href={`/engineer/${username}`} className="hover:underline">
+        <CardContent>
+          <div className="divide-y">
+            {engineers.map(([username, info]) => {
+              const touchedRepos = [...info.repos.entries()].sort(
+                (a, b) => b[1].commits - a[1].commits
+              );
+              return (
+                <div
+                  key={username}
+                  className="grid grid-cols-1 md:grid-cols-[minmax(220px,1fr)_2fr] gap-4 py-4 first:pt-0 last:pb-0"
+                >
+                  {/* Left: engineer identity + summary */}
+                  <div>
+                    <Link
+                      href={`/engineer/${username}`}
+                      className="font-medium hover:underline"
+                    >
                       {info.displayName}
                     </Link>
-                    <div className="text-xs text-muted-foreground font-mono font-normal">
+                    <div className="text-xs text-muted-foreground font-mono mt-0.5">
+                      <span className="font-bold text-foreground">
+                        {info.total}
+                      </span>{" "}
+                      commits ·{" "}
                       <span className="text-emerald-600">+{info.linesAdded}</span>
                       {" / "}
                       <span className="text-red-600">-{info.linesDeleted}</span>
                     </div>
                     {summaryByEngineer.get(username) && (
-                      <p className="text-[11px] italic text-muted-foreground font-normal mt-1 leading-snug whitespace-normal">
+                      <p className="text-xs italic text-muted-foreground mt-2 leading-snug">
                         {summaryByEngineer.get(username)}
                       </p>
                     )}
-                  </TableCell>
-                  {reposList.map((r) => {
-                    const cell = info.repos.get(r);
-                    return (
-                      <TableCell key={r} className="text-right font-mono">
-                        {cell ? (
-                          <div>
-                            <div className="font-bold">{cell.commits}</div>
-                            <div className="text-xs text-muted-foreground">
-                              <span className="text-emerald-600">+{cell.linesAdded}</span>
-                              {" / "}
-                              <span className="text-red-600">-{cell.linesDeleted}</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-muted-foreground">·</span>
-                        )}
-                      </TableCell>
-                    );
-                  })}
-                  <TableCell className="text-right font-mono font-bold">
-                    {info.total}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {engineers.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={reposList.length + 2} className="text-center text-muted-foreground">
-                    No contributions this week
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                  </div>
+
+                  {/* Right: repos worked on */}
+                  <div className="flex flex-col gap-1.5">
+                    {touchedRepos.map(([repo, cell]) => (
+                      <div
+                        key={repo}
+                        className="flex items-center justify-between text-sm gap-3"
+                      >
+                        <Link
+                          href={`/repo/${repo}`}
+                          className="font-mono text-xs hover:underline truncate"
+                        >
+                          {repo}
+                        </Link>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span className="font-mono font-bold text-sm">
+                            {cell.commits}
+                          </span>
+                          <span className="font-mono text-xs text-muted-foreground w-[110px] text-right">
+                            <span className="text-emerald-600">
+                              +{cell.linesAdded}
+                            </span>
+                            {" / "}
+                            <span className="text-red-600">
+                              -{cell.linesDeleted}
+                            </span>
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            {engineers.length === 0 && (
+              <div className="text-center text-muted-foreground py-6 text-sm">
+                No contributions this week
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
