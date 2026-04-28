@@ -146,6 +146,46 @@ export default async function WeekPage({
     engineerMap.set(row.username, existing);
   }
   const engineers = [...engineerMap.entries()].sort((a, b) => b[1].total - a[1].total);
+
+  // Per-engineer one-line summary for the week, picked from the day-with-most-commits
+  // workSummary in daily_analyses (already AI-generated). Fast, no extra Claude calls.
+  const summaryRows = await db
+    .select({
+      username: schema.engineers.username,
+      date: schema.dailyAnalyses.date,
+      commitCount: schema.dailyAnalyses.commitCount,
+      workSummary: schema.dailyAnalyses.workSummary,
+    })
+    .from(schema.dailyAnalyses)
+    .innerJoin(
+      schema.engineers,
+      eq(schema.dailyAnalyses.engineerId, schema.engineers.id)
+    )
+    .where(
+      and(
+        sql`${schema.dailyAnalyses.date} >= ${start}`,
+        sql`${schema.dailyAnalyses.date} <= ${end}`
+      )
+    );
+  const summaryByEngineer = new Map<string, string>();
+  for (const r of summaryRows) {
+    if (!r.workSummary) continue;
+    const cur = summaryByEngineer.get(r.username);
+    if (!cur || r.commitCount > 0) {
+      // pick the latest non-empty summary; fall back to longest commit day
+      const existingScore = cur
+        ? parseInt(cur.split("|")[0]) || 0
+        : -1;
+      if (r.commitCount >= existingScore) {
+        summaryByEngineer.set(r.username, `${r.commitCount}|${r.workSummary}`);
+      }
+    }
+  }
+  // Strip the score prefix used for picking
+  for (const [u, val] of summaryByEngineer) {
+    summaryByEngineer.set(u, val.split("|").slice(1).join("|"));
+  }
+
   // Fixed repo order so column positions never shift between weeks.
   const TARGET_REPOS = [
     "wishwish-unity-v2",
@@ -300,21 +340,21 @@ export default async function WeekPage({
           <Table className="table-fixed w-full">
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[18%] sticky left-0 bg-background">Engineer</TableHead>
+                <TableHead className="w-[25%] sticky left-0 bg-background">Engineer</TableHead>
                 {reposList.map((r) => (
-                  <TableHead key={r} className="w-[13%] text-right">
+                  <TableHead key={r} className="w-[10%] text-right">
                     <Link href={`/repo/${r}`} className="hover:underline truncate block">
                       {r}
                     </Link>
                   </TableHead>
                 ))}
-                <TableHead className="w-[17%] text-right font-bold">Total</TableHead>
+                <TableHead className="w-[15%] text-right font-bold">Total</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {engineers.map(([username, info]) => (
                 <TableRow key={username}>
-                  <TableCell className="sticky left-0 bg-background font-medium">
+                  <TableCell className="sticky left-0 bg-background font-medium align-top">
                     <Link href={`/engineer/${username}`} className="hover:underline">
                       {info.displayName}
                     </Link>
@@ -323,6 +363,11 @@ export default async function WeekPage({
                       {" / "}
                       <span className="text-red-600">-{info.linesDeleted}</span>
                     </div>
+                    {summaryByEngineer.get(username) && (
+                      <p className="text-[11px] italic text-muted-foreground font-normal mt-1 leading-snug whitespace-normal">
+                        {summaryByEngineer.get(username)}
+                      </p>
+                    )}
                   </TableCell>
                   {reposList.map((r) => {
                     const cell = info.repos.get(r);
